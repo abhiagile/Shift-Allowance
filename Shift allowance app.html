@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shift Allowance</title>
+<style>
+  :root{
+    --ink:#1c2530; --ink-soft:#5a6b7b; --line:#dfe4ea; --line-strong:#c3ccd6;
+    --paper:#ffffff; --panel:#f6f8fa; --accent:#0f6f6a; --accent-deep:#0a4f4b;
+    --warn-bg:#fff4dc; --warn-line:#e8c469; --warn-ink:#8a6407;
+    --err-bg:#fde4e1; --err-line:#e79b90; --err-ink:#a3352a;
+    --ok-bg:#e2f3ec; --ok-line:#8ecbb0; --ok-ink:#1c7351;
+    --pay:#0f6f6a; --font:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);color:var(--ink);background:var(--panel);line-height:1.45;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+  header.top{background:var(--accent-deep);color:#fff;padding:18px 0}
+  .top .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .brand{display:flex;align-items:baseline;gap:12px}
+  .brand h1{font-size:19px;font-weight:650;letter-spacing:-.01em}
+  .brand .periodpick{font-family:inherit;font-size:13.5px;font-weight:600;color:#0a4f4b;background:#fff;border:1px solid transparent;border-radius:7px;padding:6px 10px}
+  .tabs{display:flex;gap:4px;background:rgba(255,255,255,.12);padding:4px;border-radius:9px}
+  .tabs button{border:0;background:transparent;color:#cfe4e2;font-family:inherit;font-size:13.5px;font-weight:550;padding:7px 15px;border-radius:6px;cursor:pointer;transition:background .12s,color .12s}
+  .tabs button:hover{color:#fff}
+  .tabs button.active{background:#fff;color:var(--accent-deep)}
+  .tabbadge{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 4px;background:var(--err-ink);color:#fff;font-size:10.5px;font-weight:700;border-radius:100px;margin-left:4px;vertical-align:2px}
+  main{padding:26px 0 60px}
+  .view{display:none}
+  .view.show{display:block}
+  .picker{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:22px 24px;margin-bottom:20px}
+  .picker .lead{font-size:14px;color:var(--ink-soft);margin-bottom:14px}
+  .picker-row{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+  select,input[type=text]{font-family:inherit;font-size:14.5px;color:var(--ink);background:var(--paper);border:1px solid var(--line-strong);border-radius:8px;padding:9px 12px;min-width:230px}
+  select:focus,input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .stat{background:var(--paper);border:1px solid var(--line);border-radius:11px;padding:15px 17px}
+  .stat .k{font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:5px}
+  .stat .v{font-size:23px;font-weight:680;letter-spacing:-.02em}
+  .stat.money .v{color:var(--pay)}
+  .stat .sub{font-size:11.5px;color:var(--ink-soft);margin-top:2px}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;padding:4px 11px;border-radius:100px}
+  .pill.locked{background:var(--ok-bg);color:var(--ok-ink);border:1px solid var(--ok-line)}
+  .pill.draft{background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn-line)}
+  .pill.none{background:#eef1f4;color:var(--ink-soft);border:1px solid var(--line-strong)}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .card-head h2{font-size:15.5px;font-weight:640}
+  .card-head .hint{font-size:12.5px;color:var(--ink-soft)}
+  .windowbar{padding:11px 20px;font-size:13px;font-weight:560;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  .windowbar.wb-before{background:#eef1f4;color:var(--ink-soft)}
+  .windowbar.wb-open{background:var(--ok-bg);color:var(--ok-ink)}
+  .windowbar.wb-late{background:var(--err-bg);color:var(--err-ink)}
+  /* bulk bar */
+  .bulk{display:flex;align-items:flex-end;gap:12px;padding:14px 20px;background:#eef4f3;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .bulk .field label{font-size:11.5px}
+  .bulk select,.bulk input{min-width:0;padding:7px 10px;font-size:13px}
+  .bulk .rangebox{display:flex;gap:8px;align-items:flex-end}
+  .bulk .day-in{width:70px;min-width:0}
+  .bulk .grow{flex:1}
+  .bulk .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btn-sm{font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:7px;border:1px solid var(--line-strong);background:var(--paper);color:var(--ink);cursor:pointer;transition:background .12s}
+  .btn-sm:hover{background:#e3ebea}
+  .btn-sm.solid{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn-sm.solid:hover{background:var(--accent-deep)}
+  .btn-sm.warnbtn{border-color:var(--err-line);color:var(--err-ink)}
+  .btn-sm.warnbtn:hover{background:var(--err-bg)}
+  .btn-sm:disabled{opacity:.45;cursor:not-allowed}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:0}
+  .grid-scroll{overflow-x:auto}
+  .day-tbl th{background:var(--panel);color:var(--ink-soft);font-size:11.5px;font-weight:650;padding:9px 12px;border-bottom:1px solid var(--line);position:sticky;top:0}
+  .day-tbl td{padding:6px 12px;border-bottom:1px solid #eef1f4}
+  .day-tbl tr:last-child td{border-bottom:0}
+  .day-tbl .wknd td.date,.day-tbl .wknd td.day{color:var(--accent)}
+  td.date{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:550}
+  td.day{color:var(--ink-soft);width:52px}
+  td.type{color:var(--ink-soft);width:150px;font-size:12.5px}
+  td.type .holtag{color:#8a3fc9;font-weight:600}
+  td.amt{text-align:right;font-variant-numeric:tabular-nums;width:96px;font-weight:600}
+  td.amt.zero{color:var(--line-strong);font-weight:500}
+  td.pick{width:230px}
+  td.pick select{min-width:0;width:100%;padding:6px 9px;font-size:13px}
+  td.pick select.bad{background:var(--err-bg);border-color:var(--err-line);color:var(--err-ink)}
+  td.pick select.empty{background:var(--warn-bg);border-color:var(--warn-line)}
+  .rowmsg{font-size:11px;color:var(--err-ink);margin-top:3px;display:block}
+  .card-foot{padding:15px 20px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:var(--panel)}
+  .foot-note{font-size:12.5px;color:var(--ink-soft)}
+  .foot-note.block{color:var(--err-ink);font-weight:550}
+  button.btn{font-family:inherit;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px;border:1px solid transparent;cursor:pointer;transition:background .12s,opacity .12s}
+  button.primary{background:var(--accent);color:#fff}
+  button.primary:hover{background:var(--accent-deep)}
+  button.primary:disabled{background:#b7c3ca;cursor:not-allowed}
+  button.ghost{background:var(--paper);border-color:var(--line-strong);color:var(--ink)}
+  button.ghost:hover{background:#eef1f4}
+  .mgr-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+  .mgr-head h2{font-size:18px;font-weight:660;letter-spacing:-.01em}
+  .mgr-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .mgr-tbl th{background:var(--panel);color:var(--ink-soft);font-size:11.5px;font-weight:650;padding:11px 14px;border-bottom:2px solid var(--line-strong)}
+  .mgr-tbl td{padding:11px 14px;border-bottom:1px solid #eef1f4}
+  .mgr-tbl tr:hover td{background:#fafbfc}
+  .mgr-tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+  .mgr-tbl .total-row td{border-top:2px solid var(--line-strong);border-bottom:0;font-weight:700;font-size:14.5px}
+  .mgr-tbl .total-row .num.money{color:var(--pay)}
+  .mgr-tbl td.name{font-weight:560}
+  .barbig{background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .submitcount{display:flex;gap:22px;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .submitcount .big{font-size:30px;font-weight:720;letter-spacing:-.02em}
+  .submitcount .lbl{font-size:12.5px;color:var(--ink-soft)}
+  .progress{flex:1;height:9px;background:#eef1f4;border-radius:100px;overflow:hidden;min-width:120px}
+  .progress i{display:block;height:100%;background:var(--accent);border-radius:100px;transition:width .3s}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:14px;font-weight:550;padding:12px 22px;border-radius:9px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:13px;height:13px;border-radius:3px;border:1px solid}
+  .sw.warn{background:var(--warn-bg);border-color:var(--warn-line)}
+  .sw.err{background:var(--err-bg);border-color:var(--err-line)}
+  .sw.wknd{background:#fff;border-color:var(--accent)}
+  /* backend plan slide */
+  .plan{max-width:940px;margin:0 auto}
+  .plan .slide{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:34px 38px}
+  .plan h2{font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:6px}
+  .plan .subtitle{font-size:14px;color:var(--ink-soft);margin-bottom:26px}
+  .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:8px 0 30px}
+  .flow .node{background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;padding:14px;position:relative}
+  .flow .node .t{font-size:13.5px;font-weight:650;margin-bottom:3px}
+  .flow .node .d{font-size:11.5px;color:var(--ink-soft);line-height:1.35}
+  .flow .arrow{align-self:center;text-align:center;color:var(--ink-soft);font-size:18px}
+  .plan h3{font-size:14px;font-weight:660;margin:22px 0 10px;color:var(--accent-deep)}
+  .plan .rows{display:flex;flex-direction:column;gap:9px}
+  .plan .prow{display:grid;grid-template-columns:180px 1fr;gap:14px;font-size:13.5px;padding-bottom:9px;border-bottom:1px solid #eef1f4}
+  .plan .prow .lab{font-weight:600;color:var(--ink)}
+  .plan .prow .val{color:var(--ink-soft)}
+  .plan .phase{display:grid;grid-template-columns:70px 1fr;gap:14px;font-size:13.5px;padding:9px 0;border-bottom:1px solid #eef1f4}
+  .plan .phase .p{font-weight:700;color:var(--accent)}
+  .plan .callout{background:#eef4f3;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:12px 16px;font-size:13px;color:var(--ink);margin-top:20px}
+  @media (max-width:820px){.flow{grid-template-columns:1fr}.flow .arrow{transform:rotate(90deg);padding:4px 0}}
+  @media (max-width:720px){.summary{grid-template-columns:repeat(2,1fr)}.tabs{width:100%}.tabs button{flex:1;font-size:12px;padding:7px 8px}.plan .prow,.plan .phase{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1>Shift Allowance</h1>
+      <select id="periodSelect" class="periodpick" onchange="onPeriodChange()"></select>
+    </div>
+    <nav class="tabs">
+      <button id="tabEmp" class="active" onclick="switchView('emp')">Submit my shifts</button>
+      <button id="tabMgr" onclick="switchView('mgr')">Manager view <span id="mgrBadge" class="tabbadge" style="display:none">0</span></button>
+      <button id="tabPlan" onclick="switchView('plan')">Where this goes next</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- EMPLOYEE VIEW -->
+  <section id="empView" class="view show">
+    <div class="picker">
+      <div class="lead">Pick your name, fill a code for every day, then submit. You only see and edit your own month.</div>
+      <div class="picker-row">
+        <div class="field">
+          <label for="empSelect">Your name</label>
+          <select id="empSelect" onchange="loadEmployee()">
+            <option value="">Select your name...</option>
+          </select>
+        </div>
+        <div id="empStatusWrap"></div>
+      </div>
+    </div>
+
+    <div id="empBody" style="display:none">
+      <div class="summary">
+        <div class="stat"><div class="k">Days filled</div><div class="v" id="sDays">0</div><div class="sub" id="sDaysSub">of 31</div></div>
+        <div class="stat"><div class="k">Paid shifts</div><div class="v" id="sPaid">0</div><div class="sub">worked shifts</div></div>
+        <div class="stat money"><div class="k">Allowance</div><div class="v" id="sMoney">Rs 0</div><div class="sub">this month</div></div>
+        <div class="stat"><div class="k">Issues to fix</div><div class="v" id="sIssues">0</div><div class="sub" id="sIssuesSub">before submit</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2 id="gridTitle">Your shifts</h2>
+          <span class="hint">Weekend rate applies on Saturdays and Sundays (Morning/Afternoon 2000, Night 2500).</span>
+        </div>
+        <div class="windowbar" id="windowBar"></div>
+
+        <!-- BULK ACTION BAR -->
+        <div class="bulk" id="bulkBar">
+          <div class="field grow" style="max-width:260px">
+            <label for="bulkCode">Bulk fill code</label>
+            <select id="bulkCode"></select>
+          </div>
+          <div class="field">
+            <label>Day range (optional)</label>
+            <div class="rangebox">
+              <input type="text" class="day-in" id="bulkFrom" placeholder="from" inputmode="numeric">
+              <input type="text" class="day-in" id="bulkTo" placeholder="to" inputmode="numeric">
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn-sm solid" onclick="bulkFillRange()">Fill range with code</button>
+            <button class="btn-sm" onclick="bulkFillEmpty()">Fill empty weekdays with code (weekends default Off)</button>
+            <button class="btn-sm" onclick="bulkWeekendsOff()">Auto-fill weekends as Off</button>
+            <button class="btn-sm warnbtn" onclick="bulkClear()">Clear all my entries</button>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span><i class="sw wknd"></i> Weekend day</span>
+          <span style="color:#8a3fc9;font-weight:600">&middot; Holiday name</span><span>= public holiday, shown for reference only (doesn't change codes or rates)</span>
+          <span><i class="sw warn"></i> Not yet filled</span>
+          <span><i class="sw err"></i> Code doesn't fit the day</span>
+        </div>
+        <div class="grid-scroll">
+          <table class="day-tbl">
+            <thead><tr><th>Date</th><th>Day</th><th>Type</th><th>Your code</th><th style="text-align:right">Amount</th></tr></thead>
+            <tbody id="dayRows"></tbody>
+          </table>
+        </div>
+        <div class="card-foot">
+          <div class="foot-note" id="footNote">Fill every day to submit.</div>
+          <div style="display:flex;gap:10px">
+            <button class="btn ghost" id="btnReopen" style="display:none" onclick="reopen()">Reopen to edit</button>
+            <button class="btn primary" id="btnSubmit" onclick="submitShifts()" disabled>Submit shifts</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MANAGER VIEW -->
+  <section id="mgrView" class="view">
+    <div class="mgr-head">
+      <h2>Monthly submissions</h2>
+      <div class="mgr-tools">
+        <button class="btn ghost" onclick="refreshManager()">Refresh</button>
+        <button class="btn ghost" onclick="exportCSV()">Export CSV</button>
+        <button class="btn primary" onclick="exportXLSX()">Export formatted Excel</button>
+      </div>
+    </div>
+    <div class="barbig" style="margin-bottom:18px">
+      <div class="submitcount">
+        <div><div class="big" id="subCount">0/16</div><div class="lbl">submitted</div></div>
+        <div class="progress"><i id="subBar" style="width:0%"></i></div>
+        <div><div class="big" id="pendingCount" style="color:var(--warn-ink)">0</div><div class="lbl">pending review</div></div>
+        <div><div class="big" id="mgrTotal" style="color:var(--pay)">Rs 0</div><div class="lbl">total allowance (submitted)</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="grid-scroll">
+        <table class="mgr-tbl">
+          <thead><tr>
+            <th>#</th><th>Team member</th><th class="num">Days filled</th>
+            <th class="num">Paid shifts</th><th class="num">Allowance</th><th>Status</th><th>Submitted</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="mgrRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" id="mgrEditCard" style="display:none;margin-top:18px">
+      <div class="card-head">
+        <h2 id="mgrEditTitle">Reviewing</h2>
+        <span class="hint">Manager edits here are saved as a correction on the employee's record.</span>
+      </div>
+      <div class="grid-scroll">
+        <table class="day-tbl">
+          <thead><tr><th>Date</th><th>Day</th><th>Type</th><th>Code</th><th style="text-align:right">Amount</th></tr></thead>
+          <tbody id="mgrEditRows"></tbody>
+        </table>
+      </div>
+      <div class="card-foot">
+        <div class="foot-note" id="mgrEditFoot"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn ghost" onclick="mgrCloseEdit()">Close</button>
+          <button class="btn ghost" onclick="mgrSaveCorrection(false)">Save correction</button>
+          <button class="btn primary" onclick="mgrSaveCorrection(true)">Save & approve</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BACKEND PLAN SLIDE -->
+  <section id="planView" class="view">
+    <div class="plan">
+      <div class="slide">
+        <h2>Where this goes next</h2>
+        <div class="subtitle">Hackathon build is a single-page demo. Production runs on Microsoft 365, which the team already uses, so there is no new login to manage and no new place to store people's data.</div>
+
+        <div class="flow">
+          <div class="node"><div class="t">Team member</div><div class="d">Opens the app, already signed in with their work account.</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="node"><div class="t">Entra ID sign-in</div><div class="d">Microsoft verifies who they are. Each person sees only their own sheet.</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="node"><div class="t">SharePoint list</div><div class="d">One submission per person per month, stored as list items.</div></div>
+        </div>
+        <div class="flow" style="grid-template-columns:1fr">
+          <div class="node"><div class="t">Manager dashboard &amp; export</div><div class="d">Reads every submission, shows who has and hasn't submitted, and exports the same layout you use today.</div></div>
+        </div>
+
+        <h3>How each piece maps to Microsoft 365</h3>
+        <div class="rows">
+          <div class="prow"><div class="lab">Identity / login</div><div class="val">Microsoft Entra ID (Azure AD). Nobody creates a new account; they use their existing work sign-in. Identity also tells the app which person's sheet to load, so privacy is automatic.</div></div>
+          <div class="prow"><div class="lab">Data store</div><div class="val">A SharePoint list, one item per person per month. Holds the daily codes, computed allowance, status (Draft / Submitted / Approved / Needs Correction), manager comments, and a full timestamped history for audit.</div></div>
+          <div class="prow"><div class="lab">The app itself</div><div class="val">Same front end you're demoing, hosted as a SharePoint / Teams app (or Power Apps if you want low-code). Lives inside a tab in Teams so the team opens it where they already work.</div></div>
+          <div class="prow"><div class="lab">Approval workflow</div><div class="val">Submit is blocked until the window opens (1st of the following month) and flagged late after the 7th business day. Manager can Approve, Send back with a comment (auto-unlocks the employee's sheet), or edit the entries directly and save as a correction.</div></div>
+          <div class="prow"><div class="lab">Business rules</div><div class="val">Rate card, code validation, the submission-window dates, and the weekend premium logic move server-side (Power Automate or a small Azure Function) so none of it can be bypassed from the browser.</div></div>
+          <div class="prow"><div class="lab">Notifications</div><div class="val">Real push, not the in-app badge this demo uses: Power Automate sends the manager a Teams/email alert on every new submission, and sends the employee an alert when approved or sent back for correction.</div></div>
+          <div class="prow"><div class="lab">Manager reporting &amp; export</div><div class="val">The formatted Excel export in this demo is designed to become an automated step: on approval, Power Automate drops that month's sheet into the team's tracked SharePoint workbook as a new monthly tab, so the workbook stays the single source of truth without anyone copy-pasting.</div></div>
+          <div class="prow"><div class="lab">Reminders</div><div class="val">Power Automate flow: nudge anyone who hasn't submitted as the 7-business-day deadline nears, and notify the manager once everyone's in or once anything's overdue.</div></div>
+        </div>
+
+        <h3>Rollout in three phases</h3>
+        <div class="phase"><div class="p">Phase 1</div><div>Lift this UI into a Teams tab backed by a SharePoint list. Manual sign-in, real per-person storage. Ships in days.</div></div>
+        <div class="phase"><div class="p">Phase 2</div><div>Move rate/validation logic server-side, add the submission-cutoff reminders and manager notifications.</div></div>
+        <div class="phase"><div class="p">Phase 3</div><div>Power BI dashboard, month rollover automation, and a payroll-ready export or direct handoff.</div></div>
+
+        <div class="callout"><strong>Why M365 over a standalone app:</strong> the data never leaves your tenant, there's no separate password for the team to forget, and IT already governs it. The hackathon version proves the workflow; this is the same thing on rails the org already trusts.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+/* ---------- DATA (extracted verbatim from Shift_employee_self.xlsx) ---------- */
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const YEAR = 2026;
+let PERIOD = makePeriod(0); // default; overwritten by the picker on load
+
+function makePeriod(monthIdx){
+  const mm=String(monthIdx+1).padStart(2,"0");
+  return { month:monthIdx, year:YEAR, label:MONTH_NAMES[monthIdx]+" "+YEAR, key:YEAR+"-"+mm };
+}
+
+// Reference-only public holidays for 2026 (India). These do NOT affect codes, rates, or
+// validation, and are not auto-filled — shown purely so the date is easy to recognize.
+// Key format "monthIndex-day" (monthIndex is 0-based, so January = 0).
+const HOLIDAYS_2026 = {
+  "0-14":"Makar Sankranti", "0-26":"Republic Day",
+  "2-19":"Ugadi",
+  "4-1":"Worker's Day", "4-27":"Bakrid",
+  "5-26":"Muharram",
+  "8-14":"Ganesh Chaturthi",
+  "9-2":"Gandhi Jayanti", "9-20":"Dussehra / Ayudha Puja",
+  "11-25":"Christmas"
+};
+
+const RATES = {
+  M:{label:"Morning", rate:750}, A:{label:"Afternoon", rate:750}, N:{label:"Night", rate:1500},
+  WM:{label:"Weekend Morning", rate:2000}, WA:{label:"Weekend Afternoon", rate:2000}, WN:{label:"Weekend Night", rate:2500},
+  G:{label:"General Shift", rate:0}, x:{label:"Week Off / Comp-off", rate:0}, o:{label:"Weekend Off", rate:0},
+  h:{label:"Holiday (not worked)", rate:0}, s:{label:"Sick Day", rate:0}, v:{label:"Vacation / PTO", rate:0}
+};
+const CODE_ORDER = ["M","A","N","WM","WA","WN","G","x","o","s","v"];
+
+const TEAM = [
+  "Ashvin Vaddoori","Pallavi Naidu","Jeevan Abraham","Pradeep Kumar Sreenivasachar",
+  "Abhishek Pandey","Ashish Mishra","Wahed Mirza","Prasanna Kumar Mangali",
+  "Keshav Kant Mishra","Abdus Samad Yadav","Annapurna Myakala","Avinash Routray",
+  "Namita Chaturvedi","Likhith Kumar Reddymalla","Ammar Jamshid Ansari","Amrutha Devarakonda"
+];
+
+
+/* ---------- day model ---------- */
+function buildDays(){
+  const days=[]; const dim=new Date(PERIOD.year, PERIOD.month+1, 0).getDate();
+  const dn=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  for(let d=1; d<=dim; d++){
+    const dt=new Date(PERIOD.year,PERIOD.month,d); const wd=dt.getDay();
+    const holidayName = HOLIDAYS_2026[PERIOD.month+"-"+d] || null;
+    days.push({ d, dow:dn[wd], weekend:(wd===0||wd===6), holidayName });
+  }
+  return days;
+}
+let DAYS = buildDays();
+
+/* ---------- submission window: open 1st of next month, deadline = 7th business day of next month ---------- */
+function nthBusinessDay(year, monthIdx, n){
+  const d = new Date(year, monthIdx, 1); let count=0;
+  while(true){
+    const dow=d.getDay();
+    if(dow!==0 && dow!==6){ count++; if(count===n) return new Date(d); }
+    d.setDate(d.getDate()+1);
+  }
+}
+function getWindow(period){
+  const openDate = new Date(period.year, period.month+1, 1); // JS rolls Dec->Jan/year+1 automatically
+  const deadlineDate = nthBusinessDay(openDate.getFullYear(), openDate.getMonth(), 7);
+  deadlineDate.setHours(23,59,59,999);
+  return { openDate, deadlineDate };
+}
+function windowStatus(period){
+  const {openDate, deadlineDate} = getWindow(period);
+  const now = new Date();
+  if(now < openDate) return {state:"before", openDate, deadlineDate};
+  if(now > deadlineDate) return {state:"late", openDate, deadlineDate};
+  return {state:"open", openDate, deadlineDate};
+}
+const fmtDate = (d) => d.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
+const WEEKEND_CODES = ["WM","WA","WN"];
+const WEEKDAY_WORK  = ["M","A","N"];
+
+// Validation mirrors the workbook: weekend codes only on weekends, weekday work codes only on weekdays.
+function codeFits(code, day){
+  if(!code) return {ok:true, empty:true};
+  if(!(code in RATES)) return {ok:false, msg:"Unknown code"};
+  if(day.weekend){
+    if(WEEKDAY_WORK.includes(code)) return {ok:false, msg:"Weekday code on a weekend. Use WM/WA/WN, or o for weekend off."};
+  } else {
+    if(WEEKEND_CODES.includes(code)) return {ok:false, msg:"Weekend code on a weekday. Use M/A/N."};
+    if(code==="o") return {ok:false, msg:"Weekend-off on a weekday. Use x for a week off."};
+  }
+  return {ok:true};
+}
+
+/* ---------- storage helpers (persistent, per-employee keys) ---------- */
+// Keys must not contain whitespace, slashes, quotes or colons, so slugify the name and period.
+const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+const keyFor = (name) => `shift_${slug(PERIOD.key)}_${slug(name)}`;
+
+// Fallback store for any context where window.storage is unavailable, so the demo never hard-fails.
+const memStore = {};
+const hasStorage = (typeof window!=="undefined" && window.storage && typeof window.storage.set==="function");
+
+async function saveSubmission(name, obj){
+  const val=JSON.stringify(obj);
+  if(hasStorage){
+    try{ await window.storage.set(keyFor(name), val, true); return true; }
+    catch(e){ console.error("storage.set failed:",e); memStore[keyFor(name)]=val; return true; }
+  }
+  memStore[keyFor(name)]=val; return true;
+}
+async function getSubmission(name){
+  const k=keyFor(name);
+  if(hasStorage){
+    try{ const r=await window.storage.get(k, true); if(r) return JSON.parse(r.value); }
+    catch(e){ /* fall through to mem */ }
+  }
+  return memStore[k]? JSON.parse(memStore[k]) : null;
+}
+
+/* ---------- employee view ---------- */
+let current = { name:"", entries:{}, status:"none", submittedAt:null };
+
+function initSelects(){
+  const sel=document.getElementById("empSelect");
+  TEAM.forEach(n=>{ const o=document.createElement("option"); o.value=n; o.textContent=n; sel.appendChild(o); });
+  const b=document.getElementById("bulkCode");
+  CODE_ORDER.forEach(c=>{ const o=document.createElement("option"); o.value=c; o.textContent=c+" \u00b7 "+RATES[c].label+(RATES[c].rate?" (Rs "+RATES[c].rate+")":""); b.appendChild(o); });
+  b.value="M";
+
+  const p=document.getElementById("periodSelect");
+  const nowMonth = (YEAR===new Date().getFullYear()) ? new Date().getMonth() : 0;
+  MONTH_NAMES.forEach((name,i)=>{ const o=document.createElement("option"); o.value=i; o.textContent=name+" "+YEAR; p.appendChild(o); });
+  p.value = nowMonth;
+  PERIOD = makePeriod(nowMonth);
+  DAYS = buildDays();
+}
+
+async function onPeriodChange(){
+  const idx = parseInt(document.getElementById("periodSelect").value,10);
+  PERIOD = makePeriod(idx);
+  DAYS = buildDays();
+  // reset the currently open employee's in-page state and reload for the new month
+  const empSel=document.getElementById("empSelect");
+  if(empSel.value){ await loadEmployee(); } else { document.getElementById("empBody").style.display="none"; }
+  if(document.getElementById("mgrView").classList.contains("show")) await refreshManager();
+}
+
+async function loadEmployee(){
+  const name=document.getElementById("empSelect").value;
+  const body=document.getElementById("empBody"); const statusWrap=document.getElementById("empStatusWrap");
+  if(!name){ body.style.display="none"; statusWrap.innerHTML=""; return; }
+  const saved=await getSubmission(name);
+  current = saved
+    ? { name, entries:saved.entries||{}, status:saved.status||"draft", submittedAt:saved.submittedAt||null,
+        isLate:saved.isLate||false, reviewedAt:saved.reviewedAt||null, managerComment:saved.managerComment||"",
+        correctedByManager:saved.correctedByManager||false }
+    : { name, entries:{}, status:"none", submittedAt:null, isLate:false, reviewedAt:null, managerComment:"", correctedByManager:false };
+  document.getElementById("gridTitle").textContent = name + " \u2014 " + PERIOD.label;
+  renderStatusPill(); renderDayRows(); recompute(); body.style.display="block";
+}
+
+function renderStatusPill(){
+  const w=document.getElementById("empStatusWrap");
+  let cls="none",txt="Not started";
+  if(current.status==="approved"){cls="locked";txt="Approved";}
+  else if(current.status==="needs_correction"){cls="draft";txt="Needs correction";}
+  else if(current.status==="submitted"){cls="locked";txt="Submitted"+(current.isLate?" (late)":"")+" \u2014 pending review";}
+  else if(current.status==="draft"){cls="draft";txt="Draft in progress";}
+  w.innerHTML = `<div class="field"><label>Status</label><span class="pill ${cls}"><i class="dot"></i>${txt}</span></div>`;
+}
+
+function renderDayRows(){
+  const tb=document.getElementById("dayRows"); tb.innerHTML="";
+  const locked = current.status==="submitted" || current.status==="approved";
+  document.getElementById("bulkBar").style.opacity = locked? .5 : 1;
+  document.getElementById("bulkBar").style.pointerEvents = locked? "none" : "auto";
+  DAYS.forEach(day=>{
+    const tr=document.createElement("tr");
+    tr.className = (day.weekend?"wknd":"");
+    const code=current.entries[day.d]||"";
+    const opts = ['<option value="">\u2014</option>'].concat(
+      CODE_ORDER.map(c=>`<option value="${c}" ${c===code?"selected":""}>${c} \u00b7 ${RATES[c].label}</option>`)
+    ).join("");
+    const dstr=String(day.d).padStart(2,"0")+" "+PERIOD.label.slice(0,3);
+    const typ = day.weekend?"Weekend":"Weekday";
+    const typCell = day.holidayName ? `${typ} <span class="holtag">\u00b7 ${day.holidayName}</span>` : typ;
+    tr.innerHTML =
+      `<td class="date">${dstr}</td><td class="day">${day.dow}</td>`+
+      `<td class="type">${typCell}</td>`+
+      `<td class="pick"><select data-day="${day.d}" ${locked?"disabled":""} onchange="onPick(${day.d}, this.value)">${opts}</select>`+
+      `<span class="rowmsg" id="msg-${day.d}"></span></td>`+
+      `<td class="amt" id="amt-${day.d}">\u2014</td>`;
+    tb.appendChild(tr);
+  });
+  validateAll();
+}
+
+function onPick(d, val){
+  if(val) current.entries[d]=val; else delete current.entries[d];
+  if(current.status==="none") current.status="draft";
+  persist(false); validateAll(); recompute(); renderStatusPill();
+}
+
+/* ---------- bulk actions ---------- */
+function ensureEditable(){
+  if(current.status==="submitted"){ toast("Reopen to edit before using bulk actions"); return false; }
+  if(!current.name){ toast("Pick your name first"); return false; }
+  return true;
+}
+function afterBulk(msg){
+  if(current.status==="none") current.status="draft";
+  renderDayRows(); recompute(); renderStatusPill(); persist(false); toast(msg);
+}
+function readRange(){
+  const f=parseInt(document.getElementById("bulkFrom").value,10);
+  const t=parseInt(document.getElementById("bulkTo").value,10);
+  const lo = isNaN(f)?1:Math.max(1,f), hi = isNaN(t)?DAYS.length:Math.min(DAYS.length,t);
+  return {lo:Math.min(lo,hi), hi:Math.max(lo,hi)};
+}
+function bulkFillRange(){
+  if(!ensureEditable()) return;
+  const code=document.getElementById("bulkCode").value; const {lo,hi}=readRange();
+  let n=0; for(let d=lo; d<=hi; d++){ current.entries[d]=code; n++; }
+  afterBulk(`Set ${code} for days ${lo}\u2013${hi} (${n} day${n>1?"s":""})`);
+}
+function bulkFillEmpty(){
+  if(!ensureEditable()) return;
+  const code=document.getElementById("bulkCode").value;
+  let filled=0, weekendsOff=0;
+  DAYS.forEach(day=>{
+    if(current.entries[day.d]) return;
+    if(day.weekend){ current.entries[day.d]="o"; weekendsOff++; }
+    else { current.entries[day.d]=code; filled++; }
+  });
+  const parts=[];
+  if(filled) parts.push(`${filled} weekday${filled>1?"s":""} set to ${code}`);
+  if(weekendsOff) parts.push(`${weekendsOff} weekend day${weekendsOff>1?"s":""} set to Off`);
+  afterBulk(parts.length? parts.join(", ") : "No empty days to fill");
+}
+function bulkWeekendsOff(){
+  if(!ensureEditable()) return;
+  let n=0; DAYS.forEach(day=>{ if(day.weekend){ current.entries[day.d]="o"; n++; } });
+  afterBulk(`Marked ${n} weekend day${n>1?"s":""} as Weekend Off`);
+}
+function bulkClear(){
+  if(!ensureEditable()) return;
+  if(!Object.keys(current.entries).length){ toast("Nothing to clear"); return; }
+  if(!confirm("Clear all your entries for this month?")) return;
+  current.entries={}; afterBulk("Cleared all entries");
+}
+
+function validateAll(){
+  DAYS.forEach(day=>{
+    const sel=document.querySelector(`select[data-day="${day.d}"]`); const msg=document.getElementById("msg-"+day.d);
+    if(!sel) return;
+    const code=current.entries[day.d]||"";
+    sel.classList.remove("bad","empty"); msg.textContent="";
+    if(!code){ sel.classList.add("empty"); return; }
+    const fit=codeFits(code,day);
+    if(!fit.ok){ sel.classList.add("bad"); msg.textContent=fit.msg; }
+  });
+}
+
+function renderWindowBar(){
+  const w=document.getElementById("windowBar");
+  const ws=windowStatus(PERIOD);
+  const nextLabel = MONTH_NAMES[(PERIOD.month+1)%12]+" "+(PERIOD.month===11?PERIOD.year+1:PERIOD.year);
+  if(ws.state==="before"){
+    w.className="windowbar wb-before";
+    w.textContent=`Submission for ${PERIOD.label} opens ${fmtDate(ws.openDate)} (1st of ${nextLabel}). You can fill a draft now, but Submit unlocks on that date.`;
+  } else if(ws.state==="open"){
+    w.className="windowbar wb-open";
+    w.textContent=`Submission window is open. Submit by ${fmtDate(ws.deadlineDate)} (7th business day of ${nextLabel}).`;
+  } else {
+    w.className="windowbar wb-late";
+    w.textContent=`Deadline was ${fmtDate(ws.deadlineDate)}. Submitting now will be marked as a late submission.`;
+  }
+  return ws;
+}
+
+function recompute(){
+  let filled=0, paid=0, money=0, issues=0;
+  DAYS.forEach(day=>{
+    const code=current.entries[day.d]||""; const amtCell=document.getElementById("amt-"+day.d);
+    if(!code){ if(amtCell){amtCell.textContent="\u2014";amtCell.className="amt zero";} issues++; return; }
+    if(!codeFits(code,day).ok) issues++;
+    filled++; const rate=RATES[code]?RATES[code].rate:0; if(rate>0){ paid++; money+=rate; }
+    if(amtCell){ amtCell.textContent = rate>0 ? "Rs "+rate.toLocaleString("en-IN") : "Rs 0"; amtCell.className = "amt"+(rate>0?"":" zero"); }
+  });
+  document.getElementById("sDays").textContent=filled;
+  document.getElementById("sDaysSub").textContent="of "+DAYS.length;
+  document.getElementById("sPaid").textContent=paid;
+  document.getElementById("sMoney").textContent="Rs "+money.toLocaleString("en-IN");
+  document.getElementById("sIssues").textContent=issues;
+
+  const ws=renderWindowBar();
+  const allFilled = filled===DAYS.length;
+  const noBad = DAYS.every(day=>{const c=current.entries[day.d]||"";return c && codeFits(c,day).ok;});
+  const btn=document.getElementById("btnSubmit"); const reopen=document.getElementById("btnReopen"); const foot=document.getElementById("footNote");
+  if(current.status==="submitted" || current.status==="approved"){
+    btn.style.display="none"; reopen.style.display = current.status==="submitted" ? "inline-block" : "none";
+    foot.className="foot-note";
+    if(current.status==="approved") foot.textContent="Approved by manager"+(current.reviewedAt?" on "+new Date(current.reviewedAt).toLocaleString("en-IN"):"")+".";
+    else foot.textContent="Submitted on "+new Date(current.submittedAt).toLocaleString("en-IN")+(current.isLate?" (late)":"")+". Reopen to make changes.";
+  } else {
+    btn.style.display="inline-block"; reopen.style.display="none";
+    const beforeOpen = ws.state==="before";
+    btn.disabled = !(allFilled && noBad) || beforeOpen;
+    if(current.status==="needs_correction"){ foot.className="foot-note block"; foot.textContent="Manager requested a correction: \u201c"+(current.managerComment||"")+"\u201d. Fix and resubmit."; }
+    else if(beforeOpen){ foot.className="foot-note block"; foot.textContent="Submission opens "+fmtDate(ws.openDate)+"."; }
+    else if(!allFilled){ foot.className="foot-note block"; foot.textContent=(DAYS.length-filled)+" day(s) still empty."; }
+    else if(!noBad){ foot.className="foot-note block"; foot.textContent="Fix the highlighted days before submitting."; }
+    else if(ws.state==="late"){ foot.className="foot-note block"; foot.textContent="Past the deadline \u2014 this will be marked late. Ready to submit."; }
+    else { foot.className="foot-note"; foot.textContent="All days filled and valid. Ready to submit."; }
+  }
+}
+
+async function persist(showToast){
+  const ok=await saveSubmission(current.name,{
+    name:current.name, entries:current.entries, status:current.status, submittedAt:current.submittedAt,
+    period:PERIOD.key, isLate:current.isLate||false, reviewedAt:current.reviewedAt||null,
+    managerComment:current.managerComment||"", correctedByManager:current.correctedByManager||false
+  });
+  if(showToast) toast(ok?"Saved":"Save failed \u2014 try again");
+  return ok;
+}
+async function submitShifts(){
+  const ws=windowStatus(PERIOD);
+  if(ws.state==="before"){ toast("Submission isn't open yet for this month"); return; }
+  current.status="submitted"; current.submittedAt=new Date().toISOString();
+  current.isLate = ws.state==="late";
+  current.managerComment=""; current.reviewedAt=null;
+  const ok=await persist(false);
+  if(!ok){ current.status="draft"; current.submittedAt=null; toast("Submit failed \u2014 try again"); return; }
+  renderStatusPill(); renderDayRows(); recompute(); toast(current.isLate? "Submitted (marked late)" : "Shifts submitted and locked");
+}
+async function reopen(){
+  current.status="draft"; current.submittedAt=null; await persist(false);
+  renderStatusPill(); renderDayRows(); recompute(); toast("Reopened \u2014 you can edit again");
+}
+
+/* ---------- manager view ---------- */
+function calcFor(entries){
+  let filled=0,paid=0,money=0;
+  DAYS.forEach(day=>{ const c=entries[day.d]||""; if(!c) return; filled++; const r=RATES[c]?RATES[c].rate:0; if(r>0){paid++;money+=r;} });
+  return {filled,paid,money};
+}
+let mgrData=[];
+async function refreshManager(){
+  const rows=document.getElementById("mgrRows"); rows.innerHTML="";
+  let submitted=0, grand=0, pending=0; const data=[];
+  for(let i=0;i<TEAM.length;i++){
+    const name=TEAM[i]; const s=await getSubmission(name);
+    let status="none", filled=0,paid=0,money=0, at=null, isLate=false;
+    if(s){ status=s.status||"draft"; const c=calcFor(s.entries||{}); filled=c.filled;paid=c.paid;money=c.money; at=s.submittedAt; isLate=s.isLate||false; }
+    if(status==="submitted"){ submitted++; grand+=money; pending++; }
+    if(status==="approved"){ submitted++; grand+=money; }
+    data.push({i:i+1,name,status,filled,paid,money,at,isLate});
+  }
+  mgrData=data;
+  data.forEach(r=>{
+    const tr=document.createElement("tr");
+    let pill='<span class="pill none"><i class="dot"></i>Not submitted</span>';
+    if(r.status==="approved") pill='<span class="pill locked"><i class="dot"></i>Approved</span>';
+    else if(r.status==="needs_correction") pill='<span class="pill draft"><i class="dot"></i>Needs correction</span>';
+    else if(r.status==="submitted") pill=`<span class="pill draft"><i class="dot"></i>Pending${r.isLate?" (late)":""}</span>`;
+    else if(r.status==="draft") pill='<span class="pill draft"><i class="dot"></i>Draft</span>';
+    let actions='<button class="btn-sm" onclick="mgrOpenEdit(\''+r.name.replace(/'/g,"\\'")+'\')">Edit</button>';
+    if(r.status==="submitted"){
+      actions = `<button class="btn-sm solid" onclick="mgrApprove('${r.name.replace(/'/g,"\\'")}')">Approve</button>`+
+                `<button class="btn-sm warnbtn" onclick="mgrSendBack('${r.name.replace(/'/g,"\\'")}')">Send back</button>`+ actions;
+    }
+    tr.innerHTML=`<td>${r.i}</td><td class="name">${r.name}</td><td class="num">${r.filled}/${DAYS.length}</td>`+
+      `<td class="num">${r.paid}</td><td class="num">Rs ${r.money.toLocaleString("en-IN")}</td><td>${pill}</td>`+
+      `<td>${r.at?new Date(r.at).toLocaleDateString("en-IN"):"\u2014"}</td>`+
+      `<td style="display:flex;gap:6px;flex-wrap:wrap">${actions}</td>`;
+    rows.appendChild(tr);
+  });
+  const tr=document.createElement("tr"); tr.className="total-row";
+  tr.innerHTML=`<td></td><td>Total (submitted + approved)</td><td></td><td></td><td class="num money">Rs ${grand.toLocaleString("en-IN")}</td><td></td><td></td><td></td>`;
+  rows.appendChild(tr);
+  document.getElementById("subCount").textContent=submitted+"/"+TEAM.length;
+  document.getElementById("subBar").style.width=(submitted/TEAM.length*100)+"%";
+  document.getElementById("mgrTotal").textContent="Rs "+grand.toLocaleString("en-IN");
+  document.getElementById("pendingCount").textContent=pending;
+  const badge=document.getElementById("mgrBadge");
+  if(pending>0){ badge.style.display="inline-flex"; badge.textContent=pending; } else { badge.style.display="none"; }
+}
+
+async function mgrApprove(name){
+  const s=await getSubmission(name); if(!s) return;
+  s.status="approved"; s.reviewedAt=new Date().toISOString(); s.managerComment="";
+  await saveSubmission(name,s); toast(name+"'s shifts approved"); refreshManager();
+}
+async function mgrSendBack(name){
+  const comment=prompt("What needs correcting? This is shown to "+name+".");
+  if(comment===null) return; // cancelled
+  const s=await getSubmission(name); if(!s) return;
+  s.status="needs_correction"; s.managerComment=comment||"Please review and resubmit."; s.reviewedAt=new Date().toISOString();
+  await saveSubmission(name,s); toast("Sent back to "+name); refreshManager();
+}
+
+/* manager direct-edit panel */
+let mgrEdit=null;
+async function mgrOpenEdit(name){
+  const s=await getSubmission(name);
+  mgrEdit = s ? { name, entries:{...(s.entries||{})}, status:s.status||"draft", submittedAt:s.submittedAt||null,
+                  isLate:s.isLate||false, reviewedAt:s.reviewedAt||null, managerComment:s.managerComment||"" }
+              : { name, entries:{}, status:"draft", submittedAt:null, isLate:false, reviewedAt:null, managerComment:"" };
+  document.getElementById("mgrEditTitle").textContent="Reviewing "+name+" \u2014 "+PERIOD.label;
+  document.getElementById("mgrEditCard").style.display="block";
+  renderMgrEditRows();
+  document.getElementById("mgrEditCard").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function renderMgrEditRows(){
+  const tb=document.getElementById("mgrEditRows"); tb.innerHTML="";
+  DAYS.forEach(day=>{
+    const tr=document.createElement("tr");
+    tr.className = (day.weekend?"wknd":"");
+    const code=mgrEdit.entries[day.d]||"";
+    const opts=['<option value="">\u2014</option>'].concat(
+      CODE_ORDER.map(c=>`<option value="${c}" ${c===code?"selected":""}>${c} \u00b7 ${RATES[c].label}</option>`)
+    ).join("");
+    const dstr=String(day.d).padStart(2,"0")+" "+PERIOD.label.slice(0,3);
+    const typ=day.weekend?"Weekend":"Weekday";
+    const typCell = day.holidayName ? `${typ} <span class="holtag">\u00b7 ${day.holidayName}</span>` : typ;
+    const rate=RATES[code]?RATES[code].rate:0;
+    tr.innerHTML=`<td class="date">${dstr}</td><td class="day">${day.dow}</td><td class="type">${typCell}</td>`+
+      `<td class="pick"><select data-mday="${day.d}" onchange="mgrOnPick(${day.d},this.value)">${opts}</select></td>`+
+      `<td class="amt">${code?("Rs "+rate.toLocaleString("en-IN")):"\u2014"}</td>`;
+    tb.appendChild(tr);
+  });
+  const c=calcFor(mgrEdit.entries);
+  document.getElementById("mgrEditFoot").textContent = `${c.filled}/${DAYS.length} days filled \u00b7 Rs ${c.money.toLocaleString("en-IN")} allowance`;
+}
+function mgrOnPick(d,val){ if(val) mgrEdit.entries[d]=val; else delete mgrEdit.entries[d]; renderMgrEditRows(); }
+function mgrCloseEdit(){ document.getElementById("mgrEditCard").style.display="none"; mgrEdit=null; }
+async function mgrSaveCorrection(alsoApprove){
+  if(!mgrEdit) return;
+  const payload = { name:mgrEdit.name, entries:mgrEdit.entries,
+    status: alsoApprove?"approved":(mgrEdit.status==="none"?"draft":mgrEdit.status),
+    submittedAt: mgrEdit.submittedAt || new Date().toISOString(),
+    isLate: mgrEdit.isLate, reviewedAt: new Date().toISOString(),
+    managerComment: alsoApprove? "" : mgrEdit.managerComment, correctedByManager:true, period:PERIOD.key };
+  await saveSubmission(mgrEdit.name, payload);
+  toast(alsoApprove? "Correction saved and approved" : "Correction saved");
+  mgrCloseEdit(); refreshManager();
+}
+async function exportCSV(){
+  const header=["Sl","Team Member","Status","Submitted On"];
+  DAYS.forEach(day=>header.push(String(day.d).padStart(2,"0")+" "+day.dow));
+  header.push("Days Filled","Paid Shifts","Allowance (INR)");
+  const lines=[header.join(",")]; let grand=0, submitted=0;
+  for(let i=0;i<TEAM.length;i++){
+    const name=TEAM[i]; const s=await getSubmission(name); const entries=s?(s.entries||{}):{};
+    const status=s?(s.status||"draft"):"none";
+    const statusLabel = status==="approved"?"Approved":status==="needs_correction"?"Needs correction":status==="submitted"?("Submitted"+(s.isLate?" (late)":"")):status==="draft"?"Draft":"Not submitted";
+    const at=s&&s.submittedAt?new Date(s.submittedAt).toLocaleString("en-IN"):"";
+    const c=calcFor(entries); if(status==="submitted"||status==="approved"){grand+=c.money;submitted++;}
+    const row=[i+1, `"${name}"`, `"${statusLabel}"`, `"${at}"`];
+    DAYS.forEach(day=>row.push(entries[day.d]||"")); row.push(c.filled,c.paid,c.money);
+    lines.push(row.join(","));
+  }
+  lines.push(["","TOTAL (submitted)","","",...DAYS.map(()=>""),"","",grand].join(","));
+  const blob=new Blob([lines.join("\n")],{type:"text/csv"}); const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=`shift-allowance-${PERIOD.key}.csv`; a.click(); URL.revokeObjectURL(url);
+  toast(`Exported ${submitted} submitted, Rs ${grand.toLocaleString("en-IN")} total`);
+}
+
+async function exportXLSX(){
+  if(typeof ExcelJS==="undefined"){ toast("Excel library didn't load \u2014 try Export CSV instead"); return; }
+  const wb=new ExcelJS.Workbook();
+  const safeSheetName=PERIOD.label.replace(/[:\\/?*\[\]]/g,"").slice(0,31);
+  const ws=wb.addWorksheet(safeSheetName);
+  const headers=["Sl","Team Member","Status","Submitted On", ...DAYS.map(d=>String(d.d).padStart(2,"0")+" "+d.dow), "Days Filled","Paid Shifts","Allowance (INR)"];
+  ws.addRow(headers);
+  const hRow=ws.getRow(1);
+  hRow.eachCell(cell=>{ cell.font={bold:true,color:{argb:"FFFFFFFF"}}; cell.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF0A4F4B"}}; cell.alignment={horizontal:"center",vertical:"middle"}; });
+  hRow.height=22;
+
+  let grand=0, submittedCount=0;
+  for(let i=0;i<TEAM.length;i++){
+    const name=TEAM[i]; const s=await getSubmission(name); const entries=s?(s.entries||{}):{};
+    const status=s?(s.status||"draft"):"none";
+    const statusLabel = status==="approved"?"Approved":status==="needs_correction"?"Needs correction":status==="submitted"?("Submitted"+(s.isLate?" (late)":"")):status==="draft"?"Draft":"Not submitted";
+    const at=s&&s.submittedAt?new Date(s.submittedAt).toLocaleString("en-IN"):"";
+    const c=calcFor(entries);
+    if(status==="submitted"||status==="approved"){ grand+=c.money; submittedCount++; }
+    const rowVals=[i+1,name,statusLabel,at, ...DAYS.map(d=>entries[d.d]||""), c.filled,c.paid,c.money];
+    const row=ws.addRow(rowVals);
+    DAYS.forEach((d,idx)=>{ if(d.weekend){ row.getCell(5+idx).fill={type:"pattern",pattern:"solid",fgColor:{argb:"FFEFF7F5"}}; } });
+    row.getCell(headers.length).font={bold:true,color:{argb:"FF0F6F6A"}};
+  }
+  const totalRow=ws.addRow(["","TOTAL (submitted + approved)","","", ...DAYS.map(()=>""),"","",grand]);
+  totalRow.eachCell(cell=>{ cell.font={bold:true}; cell.border={top:{style:"double"}}; });
+  totalRow.getCell(headers.length).font={bold:true,color:{argb:"FF0F6F6A"},size:12};
+
+  ws.getColumn(1).width=5; ws.getColumn(2).width=26; ws.getColumn(3).width=16; ws.getColumn(4).width=18;
+  DAYS.forEach((d,idx)=>{ ws.getColumn(5+idx).width=7; });
+  const n=headers.length; ws.getColumn(n-2).width=12; ws.getColumn(n-1).width=12; ws.getColumn(n).width=16;
+  ws.views=[{state:"frozen", ySplit:1, xSplit:4}];
+
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=`Shift Allowance - ${PERIOD.label}.xlsx`; a.click(); URL.revokeObjectURL(url);
+  toast(`Exported formatted Excel: ${submittedCount} submitted, Rs ${grand.toLocaleString("en-IN")} total. Sheet "${safeSheetName}" is named to drop straight in as a monthly tab.`);
+}
+
+/* ---------- ui plumbing ---------- */
+function switchView(v){
+  document.getElementById("empView").classList.toggle("show",v==="emp");
+  document.getElementById("mgrView").classList.toggle("show",v==="mgr");
+  document.getElementById("planView").classList.toggle("show",v==="plan");
+  document.getElementById("tabEmp").classList.toggle("active",v==="emp");
+  document.getElementById("tabMgr").classList.toggle("active",v==="mgr");
+  document.getElementById("tabPlan").classList.toggle("active",v==="plan");
+  if(v==="mgr") refreshManager();
+}
+let toastT;
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2200); }
+
+initSelects();
+refreshManager();
+</script>
+</body>
+</html>
